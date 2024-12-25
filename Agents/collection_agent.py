@@ -24,14 +24,19 @@ class CollectionAgent(Agent):
         self.documents = []
         self.log("Agent is ready")
 
-    def create_source_material(self, sources) -> SourceMaterial:
+    def create_source_material(self, sources):
         """
         Create a SourceMaterial object from a list of sources
         :param sources: list of sources to be loaded
         """
-        if len(sources) > 0:
-            for source in sources:
-                self.documents.append(SourceMaterial(source))
+        if sources:
+            for source in sources: 
+                print(source)
+                if source not in [doc.source for doc in self.documents]:
+                    self.documents.append(SourceMaterial(source))
+                else:
+                    print ('already uploaded')
+
 
     def recursive_text_splitter(self) -> List[Document]:
         """
@@ -55,9 +60,9 @@ class CollectionAgent(Agent):
 
         self.collection = client.create_collection(self.COLLECTION_NAME)
 
-    def create_source_material(self, sources) -> SourceMaterial:
-        for source in sources:
-            self.documents.append(SourceMaterial(source))
+    # def create_source_material(self, sources) -> SourceMaterial:
+    #     for source in sources:
+    #         self.documents.append(SourceMaterial(source))
 
     def create_collection(self) -> chromadb.Collection:
         """
@@ -65,15 +70,18 @@ class CollectionAgent(Agent):
         :param chunks: list of chunks of textcontaining page_content and metadata
         :return collection: Chroma collection containing the chunks
         """
-
-        for i, chunk in enumerate(self.chunks):
-            self.collection.add(
-                ids=[f"doc_{i}"],
-                documents=[chunk.page_content],
-                embeddings=[self.EMBEDDING_MODEL.encode(chunk.page_content)],
-                metadatas=[chunk.metadata]
-            )
-        self.log(f"Added {len(self.chunks)} chunks to collection: {self.collection.name}")
+        if len(self.documents) > 0:
+            self.recursive_text_splitter(self.documents)
+            for i, chunk in enumerate(self.chunks):
+                self.collection.add(
+                    ids=[f"doc_{i}"],
+                    documents=[chunk.page_content],
+                    embeddings=[self.EMBEDDING_MODEL.encode(chunk.page_content)],
+                    metadatas=[chunk.metadata]
+                )
+            self.log(f"Added {len(self.chunks)} chunks to collection: {self.collection.name}")
+        else:
+            print('nothing')
     def setup(self) -> chromadb.Collection:
         self.create_init_collection()
         self.recursive_text_splitter()
