@@ -4,11 +4,11 @@ from typing import List, Dict
 from pathlib import Path
 from openai import OpenAI
 from langchain.document_loaders import TextLoader,PyMuPDFLoader, CSVLoader, JSONLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter, MarkdownTextSplitter
 
 class SourceMaterial():
     name: str
     source: str
+    supported: bool
     types = ['text', 'image', 'video', 'audio', 'pdf', 'doc', 'ppt', 'xls', 'csv', 'json', 'xml', 'html']
     type: str
     metadata : dict
@@ -28,6 +28,7 @@ class SourceMaterial():
         :return documents: list of documents containing page_content and metadata
         """
         try:
+            self.supported = False
             self.source = file
             path = Path(file)
             self.type = path.suffix
@@ -36,6 +37,7 @@ class SourceMaterial():
                 loader = TextLoader(file)
                 self.length_type = 'pages'
             elif self.type in ['.pdf']:
+                self.supported = True
                 loader = PyMuPDFLoader(file)
                 self.length_type = 'pages'
             elif self.type in ['.csv']:
@@ -45,11 +47,7 @@ class SourceMaterial():
             else:
                 # self.log(f"Loading file {file}")
                 print(f"Unsupported file type {self.type}")
-                self.metadata = ""
-                self.length = 0
-                self.type = "Unsupported"
-                self.summary = ""
-                self.length_type = ""
+                self.unsupported_material("unsupported")
             document = loader.load()
             if len(document) > 0:
                 self.metadata = document[0].metadata
@@ -59,6 +57,21 @@ class SourceMaterial():
         except Exception as e:
             print ('Upload Failed')
 
+    def chat_response(self, model='gpt'):
+        if model == 'gpt':
+            response = self.openai.chat.completions.create(
+            model= self.GPT_MODEL,
+            messages=[{"role": "system", "content": "Provide a short summay of the document, no more than 30 words"},
+                        {"role": "user", "content": f"Summarize the document: {sample}"}])
+        self.summary = summary.choices[0].message.content or ""
+
+    def unsupported_material(self):
+        self.metadata = ""
+        self.length = 0
+        self.type = 'unsupported'
+        self.summary = ""
+        self.length_type = ""
+
     def get_document_summary(self, document):
         """
         Extract the data from the document
@@ -67,11 +80,12 @@ class SourceMaterial():
             sample = [page.page_content for page in document[:15]]
         else:
             sample =  [page.page_content for page in document]
-        summary = self.openai.chat.completions.create(
-            model= self.GPT_MODEL,
-            messages=[{"role": "system", "content": "Provide a short summay of the document, no more than 30 words"},
-                        {"role": "user", "content": f"Summarize the document: {sample}"}])
-        self.summary = summary.choices[0].message.content or ""
+        self.summary = 'test'
+        # summary = self.openai.chat.completions.create(
+        #     model= self.GPT_MODEL,
+        #     messages=[{"role": "system", "content": "Provide a short summay of the document, no more than 30 words"},
+        #                 {"role": "user", "content": f"Summarize the document: {sample}"}])
+        # self.summary = summary.choices[0].message.content or ""
 
     def __repr__(self):
         return f"{self.name} - {self.summary}"
